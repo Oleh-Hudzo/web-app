@@ -1,6 +1,6 @@
 // Import the necessary modules
 const request = require('supertest');
-const app = require('./server');
+const app = require('../server.js');
 
 // Define the test suite
 describe('Server', () => {
