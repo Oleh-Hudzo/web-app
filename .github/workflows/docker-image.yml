@@ -1,18 +1,86 @@
-name: Docker Image CI
+name: Build, Test, and Deploy Docker Image
 
 on:
   push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+    branches:
+      - main
 
 jobs:
+  test-before-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run tests
+        run: npm run test
 
   build:
-
     runs-on: ubuntu-latest
-
+    needs: test-before-build
     steps:
-    - uses: actions/checkout@v3
-    - name: Build the Docker image
-      run: docker build . --file Dockerfile --tag web-app:$(date +%s)
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Build Docker image
+        run: |
+          docker build -t myapp .
+
+      - name: Save Docker image to tar file
+        run: |
+          docker save myapp > myapp.tar
+
+      - name: Upload Docker image to GitHub Artifacts
+        uses: actions/upload-artifact@v2
+        with:
+          name: myapp
+          path: ./myapp.tar
+
+  test-after-build:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Download Docker image from GitHub Artifacts
+        uses: actions/download-artifact@v2
+        with:
+          name: myapp
+          path: ./myapp.tar
+
+      - name: Load Docker image
+        run: docker load < myapp.tar
+
+      - name: Run tests
+        run: |
+          docker run --rm myapp npm run test
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: test-after-build
+    steps:
+      - name: Download Docker image from GitHub Artifacts
+        uses: actions/download-artifact@v2
+        with:
+          name: myapp
+          path: ./myapp.tar
+
+      - name: Copy Docker image to remote server
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: ./myapp.tar
+          target: /tmp/myapp.tar
+
+      - name: SSH into remote server and deploy
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            docker load < /tmp/myapp.tar
+            docker run -d -p 80:80 myapp
