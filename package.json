@@ -1,11 +1,13 @@
 {
-    "name": "node-ex-website",
+    "name": "myapp",
     "version": "1.0.0",
     "description": "",
     "scripts": {
-        "start": "node server.js"
-    },
-    "dependencies": {
-        "express": "^4.17.1"
+        "test": "jest --coverage",
+        "start": "node index.js"
+      },
+      "dependencies": {
+        "express": "^4.17.1",
+        "jest": "^27.4.7"
+      }
     }
-}
